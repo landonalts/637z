@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Fake Safari</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+      margin: 0;
+      background: #f2f2f7;
+    }
+
+    #app {
+      width: 390px;
+      height: 844px;
+      margin: 30px auto;
+      border: 1px solid #ccc;
+      border-radius: 35px;
+      overflow: hidden;
+      box-shadow: 0 0 20px rgba(0,0,0,0.2);
+      display: flex;
+      flex-direction: column;
+      background: white;
+    }
+
+    #nav {
+      background: #e5e5ea;
+      padding: 10px;
+      display: flex;
+      gap: 8px;
+    }
+
+    #nav input {
+      flex: 1;
+      padding: 8px 12px;
+      border-radius: 12px;
+      border: none;
+      font-size: 14px;
+    }
+
+    #nav button {
+      padding: 8px 12px;
+      border: none;
+      background: #007aff;
+      color: white;
+      border-radius: 10px;
+      font-size: 14px;
+    }
+
+    #tabs {
+      display: flex;
+      background: #d1d1d6;
+      flex-wrap: wrap;
+      justify-content: flex-start;
+      padding: 6px;
+      gap: 5px;
+    }
+
+    .tab {
+      background: white;
+      padding: 5px 10px;
+      border-radius: 10px;
+      font-size: 13px;
+      display: flex;
+      align-items: center;
+      cursor: pointer;
+    }
+
+    .tab span {
+      margin-right: 5px;
+    }
+
+    .tab button {
+      background: red;
+      color: white;
+      border: none;
+      border-radius: 50%;
+      width: 18px;
+      height: 18px;
+      font-size: 12px;
+      line-height: 18px;
+      padding: 0;
+      cursor: pointer;
+    }
+
+    iframe {
+      flex-grow: 1;
+      border: none;
+      width: 100%;
+    }
+  </style>
+</head>
+<body>
+
+<div id="app">
+  <div id="nav">
+    <input type="text" id="urlInput" placeholder="Search or enter site">
+    <button onclick="go()">Go</button>
+    <button onclick="addTab()">+</button>
+  </div>
+
+  <div id="tabs"></div>
+
+  <iframe id="browserFrame"></iframe>
+</div>
+
+<script>
+let tabs = [{ title: "Tab 1", url: "" }];
+let currentTab = 0;
+let history = [];
+
+function go() {
+  let input = document.getElementById("urlInput").value.trim();
+  if (!input) return;
+
+  let isURL = input.startsWith("http") || input.includes(".");
+  let url = isURL ? (input.startsWith("http") ? input : "https://" + input) : null;
+
+  if (url) {
+    tabs[currentTab].url = url;
+    document.getElementById("browserFrame").src = url;
+  } else {
+    let searchHTML = generateSearchPage(input);
+    let blob = new Blob([searchHTML], { type: "text/html" });
+    let blobURL = URL.createObjectURL(blob);
+    tabs[currentTab].url = blobURL;
+    document.getElementById("browserFrame").src = blobURL;
+  }
+
+  history.unshift({ url: input, time: new Date().toLocaleTimeString() });
+  updateTabs();
+}
+
+function openInFakeBrowser(url) {
+  tabs[currentTab].url = url;
+  document.getElementById("browserFrame").src = url;
+  history.unshift({ url, time: new Date().toLocaleTimeString() });
+  updateTabs();
+}
+
+function generateSearchPage(query) {
+  query = query.toLowerCase();
+  let results = [];
+
+  if (query.includes("cat")) {
+    results.push(`<li><img src="https://placekitten.com/80/80"> <a href="#" onclick="parent.openInFakeBrowser('https://en.wikipedia.org/wiki/Cat')">Wikipedia: Cat</a></li>`);
+  }
+
+  if (query.includes("openai")) {
+    results.push(`<li><img src="https://openai.com/favicon.ico" width="20"> <a href="#" onclick="parent.openInFakeBrowser('https://openai.com')">OpenAI Official</a></li>`);
+  }
+
+  if (query.includes("news")) {
+    results.push(`<li><img src="https://cdn.cnn.com/cnn/.e1mo/img/4.0/logos/cnn_logo.png" width="20"> <a href="#" onclick="parent.openInFakeBrowser('https://cnn.com')">CNN</a></li>`);
+    results.push(`<li><img src="https://news.bbcimg.co.uk/nol/shared/img/bbc_news_120x60.gif" width="20"> <a href="#" onclick="parent.openInFakeBrowser('https://bbc.com')">BBC</a></li>`);
+  }
+
+  if (results.length === 0) {
+    results.push(`<li>No results found for "${query}"</li>`);
+  }
+
+  return `
+    <html>
+    <body style="font-family: sans-serif; padding: 20px;">
+      <h3>Results for "${query}"</h3>
+      <ul style="list-style:none;padding:0;">${results.join("")}</ul>
+    </body>
+    </html>
+  `;
+}
+
+function addTab() {
+  const newTab = { title: "Tab " + (tabs.length + 1), url: "" };
+  tabs.push(newTab);
+  currentTab = tabs.length - 1;
+  updateTabs();
+  document.getElementById("browserFrame").src = "";
+}
+
+function renameTab(index) {
+  const newName = prompt("Rename tab:", tabs[index].title);
+  if (newName) {
+    tabs[index].title = newName;
+    updateTabs();
+  }
+}
+
+function closeTab(index) {
+  if (tabs.length === 1) return alert("You must have at least one tab open.");
+  tabs.splice(index, 1);
+  if (currentTab >= tabs.length) currentTab = tabs.length - 1;
+  document.getElementById("browserFrame").src = tabs[currentTab].url;
+  updateTabs();
+}
+
+function switchTab(index) {
+  currentTab = index;
+  document.getElementById("browserFrame").src = tabs[index].url;
+  updateTabs();
+}
+
+function showHistory() {
+  const html = `
+    <html><body style="padding:20px;font-family:sans-serif;">
+    <h3>History</h3>
+    <ul>${history.map(h => `<li>${h.time}: ${h.url}</li>`).join("")}</ul>
+    </body></html>
+  `;
+  const blob = new Blob([html], { type: "text/html" });
+  const url = URL.createObjectURL(blob);
+  document.getElementById("browserFrame").src = url;
+}
+
+function showSettings() {
+  const html = `
+    <html><body style="padding:20px;font-family:sans-serif;">
+    <h3>Settings</h3>
+    <p>This is your fake Safari browser. You can search, open tabs, close them, and rename them.</p>
+    </body></html>
+  `;
+  const blob = new Blob([html], { type: "text/html" });
+  const url = URL.createObjectURL(blob);
+  document.getElementById("browserFrame").src = url;
+}
+
+function updateTabs() {
+  const container = document.getElementById("tabs");
+  container.innerHTML = "";
+
+  tabs.forEach((tab, i) => {
+    const tabEl = document.createElement("div");
+    tabEl.className = "tab";
+    tabEl.innerHTML = `<span onclick="renameTab(${i})">${tab.title}</span><button onclick="closeTab(${i})">×</button>`;
+    tabEl.onclick = () => switchTab(i);
+    container.appendChild(tabEl);
+  });
+
+  const extra = document.createElement("div");
+  extra.className = "tab";
+  extra.innerHTML = `<span onclick="showHistory()">History</span>`;
+  container.appendChild(extra);
+
+  const settings = document.createElement("div");
+  settings.className = "tab";
+  settings.innerHTML = `<span onclick="showSettings()">Settings</span>`;
+  container.appendChild(settings);
+}
+
+updateTabs();
+</script>
+
+</body>
+</html>
