@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Fake Safari Browser</title>
+  <style>
+    body {
+      margin: 0;
+      font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+      background-color: #f2f2f7;
+    }
+
+    #browser {
+      width: 400px;
+      height: 700px;
+      border: 2px solid #ccc;
+      border-radius: 30px;
+      overflow: hidden;
+      margin: 40px auto;
+      box-shadow: 0 8px 20px rgba(0,0,0,0.2);
+      background: white;
+      display: flex;
+      flex-direction: column;
+    }
+
+    #topBar {
+      background-color: #e5e5ea;
+      padding: 8px 12px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    input[type="text"] {
+      flex-grow: 1;
+      padding: 8px;
+      border-radius: 12px;
+      border: none;
+      outline: none;
+      background-color: white;
+      font-size: 14px;
+    }
+
+    button {
+      padding: 6px 10px;
+      border: none;
+      background-color: #007aff;
+      color: white;
+      border-radius: 8px;
+      cursor: pointer;
+    }
+
+    #tabs {
+      display: flex;
+      background-color: #d1d1d6;
+      padding: 5px;
+      justify-content: space-around;
+      font-size: 13px;
+    }
+
+    #tabs div {
+      padding: 5px 12px;
+      background-color: white;
+      border-radius: 10px;
+      cursor: pointer;
+    }
+
+    iframe {
+      flex-grow: 1;
+      border: none;
+      width: 100%;
+    }
+
+    #history {
+      font-size: 12px;
+      padding: 10px;
+      overflow-y: auto;
+      height: 100%;
+    }
+
+    #settings {
+      padding: 20px;
+      font-size: 14px;
+    }
+  </style>
+</head>
+<body>
+
+<div id="browser">
+  <div id="topBar">
+    <input type="text" id="urlInput" placeholder="Search or enter website">
+    <button onclick="navigate()">Go</button>
+    <button onclick="addTab()">＋</button>
+  </div>
+
+  <div id="tabs"></div>
+
+  <iframe id="browserFrame"></iframe>
+</div>
+
+<script>
+let tabs = [{ title: "Tab 1", url: "" }];
+let currentTab = 0;
+let history = [];
+
+function updateTabs() {
+  const tabsDiv = document.getElementById("tabs");
+  tabsDiv.innerHTML = "";
+
+  tabs.forEach((tab, index) => {
+    const tabEl = document.createElement("div");
+    tabEl.textContent = tab.title;
+    tabEl.onclick = () => switchTab(index);
+    tabsDiv.appendChild(tabEl);
+  });
+
+  tabsDiv.innerHTML += `
+    <div onclick="showHistory()">History</div>
+    <div onclick="showSettings()">Settings</div>
+  `;
+}
+
+function switchTab(index) {
+  currentTab = index;
+  document.getElementById("browserFrame").src = tabs[index].url;
+}
+
+function navigate() {
+  let input = document.getElementById("urlInput").value.trim();
+  if (!input) return;
+
+  let isFullURL = input.startsWith("http://") || input.startsWith("https://") || input.includes(".");
+  let url;
+
+  if (isFullURL) {
+    if (!input.startsWith("http")) {
+      url = "https://" + input;
+    } else {
+      url = input;
+    }
+    tabs[currentTab].url = url;
+    document.getElementById("browserFrame").src = url;
+  } else {
+    const resultsHTML = getSearchResults(input);
+    const customHTML = `
+      <html>
+      <body style="font-family: sans-serif; padding: 20px;">
+        <h2>Search results for: "${input}"</h2>
+        <ul>
+          ${resultsHTML}
+        </ul>
+      </body>
+      </html>
+    `;
+    const blob = new Blob([customHTML], { type: "text/html" });
+    const blobURL = URL.createObjectURL(blob);
+    tabs[currentTab].url = blobURL;
+    document.getElementById("browserFrame").src = blobURL;
+  }
+
+  history.unshift({ url: input, time: new Date().toLocaleTimeString() });
+  if (history.length > 50) history.pop();
+
+  updateTabs();
+  renderHistory();
+}
+
+function getSearchResults(query) {
+  query = query.toLowerCase();
+  const results = [];
+
+  if (query.includes("cat")) {
+    results.push(`<li><a href="#" onclick="parent.openInFakeBrowser('https://en.wikipedia.org/wiki/Cat')">Wikipedia: Cat</a></li>`);
+    results.push(`<li><a href="#" onclick="parent.openInFakeBrowser('https://www.youtube.com/results?search_query=funny+cats')">YouTube: Funny Cats</a></li>`);
+  }
+
+  if (query.includes("openai")) {
+    results.push(`<li><a href="#" onclick="parent.openInFakeBrowser('https://openai.com')">OpenAI Official Site</a></li>`);
+  }
+
+  if (query.includes("news")) {
+    results.push(`<li><a href="#" onclick="parent.openInFakeBrowser('https://cnn.com')">CNN</a></li>`);
+    results.push(`<li><a href="#" onclick="parent.openInFakeBrowser('https://bbc.com')">BBC News</a></li>`);
+  }
+
+  if (results.length === 0) {
+    results.push(`<li>No results found for "${query}"</li>`);
+  }
+
+  return results.join("");
+}
+
+function openInFakeBrowser(url) {
+  tabs[currentTab].url = url;
+  document.getElementById("browserFrame").src = url;
+  history.unshift({ url, time: new Date().toLocaleTimeString() });
+  if (history.length > 50) history.pop();
+  renderHistory();
+  updateTabs();
+}
+
+function addTab() {
+  const newTab = { title: "Tab " + (tabs.length + 1), url: "" };
+  tabs.push(newTab);
+  currentTab = tabs.length - 1;
+  updateTabs();
+  document.getElementById("browserFrame").src = "";
+}
+
+function showHistory() {
+  const html = `
+    <html><body style="padding:10px;font-family:sans-serif;">
+    <h3>History</h3>
+    <ul>
+      ${history.map(h => `<li>${h.time}: ${h.url}</li>`).join("")}
+    </ul>
+    </body></html>
+  `;
+  const blob = new Blob([html], { type: "text/html" });
+  const url = URL.createObjectURL(blob);
+  document.getElementById("browserFrame").src = url;
+}
+
+function showSettings() {
+  const html = `
+    <html><body style="padding:20px;font-family:sans-serif;">
+    <h3>Settings</h3>
+    <p>This is a fake browser app styled like Safari.</p>
+    <p>You can search, browse, and switch tabs.</p>
+    </body></html>
+  `;
+  const blob = new Blob([html], { type: "text/html" });
+  const url = URL.createObjectURL(blob);
+  document.getElementById("browserFrame").src = url;
+}
+
+function renderHistory() {
+  // Called after each navigation to keep history current
+}
+
+updateTabs();
+</script>
+
+</body>
+</html>
